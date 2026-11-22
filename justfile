@@ -1,6 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 release_branch := "main"
+addons_dir := "/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
 
 # Show the version the next release would tag.
 version:
@@ -58,3 +59,31 @@ untag version:
         exit 1
     fi
     git tag -d "v{{version}}"
+
+# Copy the addon into the game's AddOns folder.
+install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail() { echo "error: $1" >&2; exit 1; }
+
+    [[ -f TrickTurner.toc ]] || fail "run this from the project root"
+    [[ -f Libs/LibStub/LibStub.lua ]] || fail "Libs/ is empty; put the libraries there first"
+
+    addons="{{addons_dir}}"
+    [[ -d "$addons" ]] || fail "no AddOns folder at $addons"
+    [[ "$(basename "$addons")" == "AddOns" ]] || fail "$addons is not an AddOns folder"
+
+    dest="$addons/TrickTurner"
+    rsync -rlt --delete \
+        --exclude '.git/' \
+        --exclude '.github/' \
+        --exclude '.claude/' \
+        --exclude '.release/' \
+        --exclude 'docs/' \
+        --exclude 'tests/' \
+        --exclude '.gitignore' \
+        --exclude '.pkgmeta' \
+        --exclude 'justfile' \
+        ./ "$dest/"
+
+    echo "installed to $dest"
