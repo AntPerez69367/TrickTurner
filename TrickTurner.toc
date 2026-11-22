@@ -1,0 +1,29 @@
+## Interface: 16001
+## Title: Trick Turner
+## Notes: Spots lockpicking requests in chat and queues them as jobs you can work.
+## Version: @project-version@
+## Category: Chat
+## IconTexture: Interface\AddOns\TrickTurner\Media\icon.tga
+## SavedVariables: TrickTurnerDB
+## X-License: GPL-3.0-or-later
+
+Libs/LibStub/LibStub.lua
+Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua
+Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua
+Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua
+
+Core/Namespace.lua
+Core/Storage.lua
+Locales.lua
+Core/Boxes.lua
+Core/Parser.lua
+Core/Skill.lua
+Core/Queue.lua
+Core/Service.lua
+Core/Monitor.lua
+Core/Minimap.lua
+UI/Widgets.lua
+UI/JobList.lua
+UI/Window.lua
+UI/OptionsStub.lua
+Core/Commands.lua
