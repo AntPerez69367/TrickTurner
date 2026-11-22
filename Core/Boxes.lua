@@ -51,7 +51,8 @@ local function register(box, generic)
     Boxes.All[#Boxes.All + 1] = box
     if box.id then Boxes.ById[box.id] = box end
     for _, term in ipairs(box.terms) do
-        terms[#terms + 1] = { term = term, box = box }
+        local clean = ns.NormaliseTerm(term)
+        if clean then terms[#terms + 1] = { term = clean, box = box } end
     end
 end
 

@@ -4,12 +4,11 @@ local Storage = ns.Storage
 local DEFAULTS = {
     running = true,
     threshold = 3,
-    monitorTrade = true,
-    monitorGeneral = true,
-    monitorLFG = true,
-    monitorOther = true,
+    channels = "table",
+    log = "table",
+    logLevel = 1,
     monitorSay = true,
-    monitorYell = false,
+    monitorYell = true,
     monitorWhisper = true,
     hideAboveSkill = false,
     greeting = "Hi %NAME%, saw you needed a box opened. Invite incoming.",
@@ -19,6 +18,16 @@ local DEFAULTS = {
     windowScale = 1.0,
     minimap = "table",
 }
+
+local SCHEMA = 2
+
+local function migrate(store)
+    if store.schema == SCHEMA then return end
+    store.monitorTrade, store.monitorGeneral = nil, nil
+    store.monitorLFG, store.monitorOther = nil, nil
+    store.monitorYell = nil
+    store.schema = SCHEMA
+end
 
 local function applyDefaults(store, defaults)
     for key, value in pairs(defaults) do
@@ -30,6 +39,7 @@ end
 
 function Storage.Initialise()
     TrickTurnerDB = TrickTurnerDB or {}
+    migrate(TrickTurnerDB)
     applyDefaults(TrickTurnerDB, DEFAULTS)
     Storage.account = TrickTurnerDB
 end
@@ -40,12 +50,15 @@ function Storage.Threshold()
     return value
 end
 
-function Storage.ChannelEnabled(tag)
+function Storage.LogLevel()
+    local value = tonumber(Storage.account.logLevel)
+    if not value then return 1 end
+    return value
+end
+
+function Storage.SourceEnabled(tag, channelName)
     local account = Storage.account
-    if tag == "TRADE" then return account.monitorTrade end
-    if tag == "GENERAL" then return account.monitorGeneral end
-    if tag == "LFG" then return account.monitorLFG end
-    if tag == "OTHER" then return account.monitorOther end
+    if tag == "CHANNEL" then return ns.Channels.Enabled(channelName) end
     if tag == "SAY" then return account.monitorSay end
     if tag == "YELL" then return account.monitorYell end
     if tag == "WHISPER" then return account.monitorWhisper end

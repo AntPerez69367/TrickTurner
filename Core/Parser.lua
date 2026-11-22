@@ -46,6 +46,7 @@ local RULES = {
             "i can unlock", "ill unlock", "open your", "your box", "your junkbox",
             "your lockbox", "at your service", "free lockpicking", "lockpicker here",
             "locksmith here", "lockpicking available", "pst me for", "whisper for",
+            "tips appreciated", "tip appreciated", "tips welcome",
         },
     },
     {
@@ -69,6 +70,19 @@ local RULES = {
         },
     },
 }
+
+for _, rule in ipairs(RULES) do
+    if rule.terms then
+        for index = #rule.terms, 1, -1 do
+            local clean = ns.NormaliseTerm(rule.terms[index])
+            if clean then
+                rule.terms[index] = clean
+            else
+                table.remove(rule.terms, index)
+            end
+        end
+    end
+end
 
 Parser.RULES = RULES
 

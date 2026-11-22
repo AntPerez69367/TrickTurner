@@ -1,8 +1,9 @@
 local addonName, ns = ...
 local UI, Storage, Queue, Monitor = ns.UI, ns.Storage, ns.Queue, ns.Monitor
 local Skill, Parser = ns.Skill, ns.Parser
+local Tuning = UI.Tuning
 
-local TABS = { "board", "options" }
+local TABS = { "board", "options", "tuning" }
 
 local M = {
     width = 560,
@@ -25,15 +26,20 @@ local M = {
     indent = 12,
 }
 
-local frame, boardPage, optionsPage, tabStrip, status, statusTimer
+local frame, boardPage, optionsPage, tuningPage, tabStrip, status, statusTimer
 local footerDone, footerIgnore
 local tabs = {}
 local currentTab = "board"
 local sections, layoutRows = {}, {}
+local channelSection, channelRows = nil, {}
+local trackButton
 local canvas, scroll
 
 local function tabLabel(name)
     if name == "options" then return ns.L.TAB_OPTIONS end
+    if name == "tuning" then
+        return string.format("%s (%d)", ns.L.TAB_TUNING, ns.Log.Count())
+    end
     return string.format("%s (%d)", ns.L.TAB_BOARD, Queue.Count())
 end
 
@@ -62,6 +68,11 @@ function UI.SetStatus(text, bad)
             UI.Refresh()
         end)
     end
+end
+
+local function refreshTrack()
+    if not trackButton then return end
+    trackButton:SetText(Storage.account.running and ns.L.ACTION_STOP or ns.L.ACTION_START)
 end
 
 local function defaultStatus()
@@ -95,10 +106,34 @@ local function layoutOptions()
     canvas:SetHeight(math.max(y, M.optionsHeight))
 end
 
+local function syncChannelRows()
+    if not channelSection then return false end
+    local added = false
+    for _, entry in ipairs(ns.Channels.Live()) do
+        local key = ns.Channels.Key(entry.name)
+        if key and not channelRows[key] then
+            local name = entry.name
+            local row = UI.Switch(canvas, name,
+                function() return ns.Channels.Enabled(name) end,
+                function(value)
+                    ns.Channels.SetEnabled(name, value)
+                    UI.Refresh()
+                end)
+            channelRows[key] = row
+            channelSection.rows[#channelSection.rows + 1] = row
+            layoutRows[#layoutRows + 1] = row
+            added = true
+        end
+    end
+    return added
+end
+
 function UI.Refresh()
+    refreshTrack()
     if not frame then return end
     boardPage:SetShown(currentTab == "board")
     optionsPage:SetShown(currentTab == "options")
+    tuningPage:SetShown(currentTab == "tuning")
     for _, name in ipairs(TABS) do
         tabs[name].SetLabel(tabLabel(name), name == currentTab)
     end
@@ -111,7 +146,13 @@ function UI.Refresh()
         footerDone:SetEnabled(job ~= nil)
         footerIgnore:SetEnabled(job ~= nil)
         if not statusTimer then UI.SetStatus(defaultStatus()) end
+    elseif currentTab == "tuning" then
+        if Tuning.weight and Tuning.weight.Apply then Tuning.weight.Apply() end
+        if Tuning.level and Tuning.level.Apply then Tuning.level.Apply() end
+        Tuning.Render()
+        if not statusTimer then UI.SetStatus(defaultStatus()) end
     else
+        syncChannelRows()
         for _, row in ipairs(layoutRows) do
             if row.Apply then row.Apply() end
         end
@@ -149,6 +190,10 @@ local function buildHeader(parent)
     UI.Ink(skill, UI.C.dim)
     header.skill = skill
 
+    trackButton = UI.Button(header, "", 56, function()
+        Monitor.SetRunning(not Storage.account.running)
+    end)
+
     local close = CreateFrame("Button", nil, header)
     close:SetSize(M.closeSize, M.closeSize)
     close:SetPoint("RIGHT", header, "RIGHT", -4, 0)
@@ -165,6 +210,9 @@ local function buildHeader(parent)
     close:SetScript("OnLeave", function(self) self.hover = false; self.Apply() end)
     close:SetScript("OnClick", function() parent:Hide() end)
     close.Apply()
+
+    trackButton:SetPoint("RIGHT", close, "LEFT", -6, 0)
+    refreshTrack()
     return header
 end
 
@@ -197,8 +245,10 @@ end
 
 local function addSection(title, rows)
     local header = UI.Section(canvas, title, function() layoutOptions() end)
-    sections[#sections + 1] = { header = header, rows = rows }
+    local section = { header = header, rows = rows }
+    sections[#sections + 1] = section
     for _, row in ipairs(rows) do layoutRows[#layoutRows + 1] = row end
+    return section
 end
 
 local function switchRow(label, key)
@@ -227,14 +277,13 @@ local function buildOptions(parent)
 
     addSection(ns.L.SECTION_MONITORING, {
         switchRow(ns.L.SETTING_RUNNING, "running"),
-        switchRow(ns.L.SETTING_TRADE, "monitorTrade"),
-        switchRow(ns.L.SETTING_GENERAL, "monitorGeneral"),
-        switchRow(ns.L.SETTING_LFG, "monitorLFG"),
-        switchRow(ns.L.SETTING_OTHER, "monitorOther"),
         switchRow(ns.L.SETTING_SAY, "monitorSay"),
         switchRow(ns.L.SETTING_YELL, "monitorYell"),
         switchRow(ns.L.SETTING_WHISPER, "monitorWhisper"),
     })
+
+    channelSection = addSection(ns.L.SECTION_CHANNELS, {})
+    syncChannelRows()
 
     local sensitivity = UI.Segmented(canvas, {
         { value = Parser.SENSITIVITY.LOOSE, label = ns.L.SENSITIVITY_LOOSE },
@@ -317,10 +366,14 @@ local function build()
     optionsPage = CreateFrame("Frame", nil, frame)
     optionsPage:SetAllPoints(frame)
     optionsPage:Hide()
+    tuningPage = CreateFrame("Frame", nil, frame)
+    tuningPage:SetAllPoints(frame)
+    tuningPage:Hide()
 
     UI.List.Attach(boardPage, M)
     buildFooter(boardPage)
     buildOptions(optionsPage)
+    Tuning.Attach(tuningPage, M)
 
     frame:SetScript("OnShow", function()
         Skill.Refresh()

@@ -80,7 +80,6 @@ install:
         --exclude '.claude/' \
         --exclude '.release/' \
         --exclude 'docs/' \
-        --exclude 'tests/' \
         --exclude '.gitignore' \
         --exclude '.pkgmeta' \
         --exclude 'justfile' \

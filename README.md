@@ -27,11 +27,16 @@ is full, an untouched card is dropped before one you have already worked.
 
 ## Settings
 
-- **Watch chat for lockpicking requests** — the master switch. Right-clicking the
-  minimap button does the same thing.
-- **Channels** — Trade, General, LookingForGroup, Say, Yell and whispers
-  individually. **Other channels** covers custom and server channels, which is where
-  the traffic may actually be on this client.
+- **Watch chat for lockpicking requests** — the master switch. **Stop** and **Start**
+  in the window header do the same thing, as does right-clicking the minimap button
+  or `/tt stop` and `/tt start`. While stopped nothing is read from chat at all.
+- **Channels** — one switch per server channel you are joined to, read from
+  `GetChannelList` when you open the options. Custom, community and greyed-out
+  channels are left out: they report no zone channel ID, and nothing on them is read.
+  General, Trade, Services and TradeLocal start on, anything else off. Switches are
+  keyed by channel name, not by the `/1 /2 /3` slot, which shifts as channels are
+  joined and left.
+- **Say**, **Yell** and **Whispers** — separate switches, since they are not channels.
 - **Sensitivity** — how much evidence a message needs. Loose catches terse requests
   like `lockbox?` and `rogue pls` at the cost of more noise; Strict wants a full
   sentence. Normal is the default.
@@ -54,32 +59,38 @@ is full, an untouched card is dropped before one you have already worked.
 
 A message earns points for naming a box, for asking language, for mentioning a rogue
 or lockpicking, and for offering a tip. It loses points for dungeon and raid
-shorthand. Two things veto a message outright: a seller phrase like `let me open` or
-`open your`, and price-per-unit phrasing like `5g each`, which is how competing
-locksmiths advertise. Terms match whole words, so `av` cannot match inside
+shorthand. Two things veto a message outright: a provider phrase like `let me open`,
+`open your` or `tips appreciated`, and price-per-unit phrasing like `5g each`, which
+is how competing locksmiths advertise. Terms match whole words, so `av` cannot match inside
 `available`.
 
 Every card shows its own reasoning in the tooltip, and `/tt dev` scores any message
 you paste at it. When something is wrong you can see which signal caused it.
 
-Two known gaps, both measured: an advertisement whose only seller markers are phrases
-customers also write (`Tips welcome`) reaches the board, and a genuine request that
-mentions a dungeon by name can fall below the threshold. `/tt misses` shows the
-second kind.
+One known gap: a genuine request that names a dungeon can fall below the threshold,
+because dungeon names are strong reject signals. `/tt misses` shows those.
+
+## Tuning
+
+The **Tuning** tab holds two things. **Weight needed to raise a job** is the raw score
+a message must reach, as a number rather than the three presets, and it shares the
+same setting as Sensitivity on the Options tab.
+
+**Log anything scoring at least** is a separate, lower bar for what gets recorded.
+Matches are always kept; this decides how far below the job weight to keep looking, so
+you can see the requests that nearly made it. Set it to 0 to keep everything with any
+signal at all.
+
+Below the two sliders is the log itself, newest first: the sender, the channel, the
+score, whether it matched, was vetoed as a competitor advertisement, or fell below the
+weight, and the player's own words. Each row has **+** and **-** to mark whether the
+verdict was right; clicking the same one again clears the mark. The last 300 entries
+and your marks are kept across sessions in `TrickTurnerDB`, so the text, the score and
+your opinion sit together and the weights can be changed against real traffic rather
+than guesses. **Clear** empties it.
 
 ## Worth knowing
 
 It never whispers, invites, or advertises on its own. The click is the product. The
 client can also block outgoing messages entirely, and when it does, an action tells
 you rather than failing quietly.
-
-## Tests
-
-The matching stage touches no client API, so it runs headless:
-
-```sh
-sh tests/run.sh
-```
-
-It uses `lua5.1` when one is installed and falls back to the embedded Lua 5.1 in the
-Python `lupa` package. Every corpus line is asserted at all three sensitivities.

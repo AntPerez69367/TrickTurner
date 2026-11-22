@@ -2,27 +2,6 @@ local addonName, ns = ...
 local Commands = ns.Commands
 local Storage, Queue, Parser, Monitor = ns.Storage, ns.Queue, ns.Parser, ns.Monitor
 
-local NEAR_MISS_LIMIT = 40
-
-local nearMisses = {}
-
-function Commands.RecordNearMiss(name, message, result)
-    if not result.box then return end
-    nearMisses[#nearMisses + 1] = {
-        name = name,
-        message = Queue.DisplayCopy(message),
-        score = result.score,
-        veto = result.veto,
-        explain = Parser.Explain(result),
-        at = time(),
-    }
-    while #nearMisses > NEAR_MISS_LIMIT do table.remove(nearMisses, 1) end
-end
-
-function Commands.NearMisses()
-    return nearMisses
-end
-
 local function describe(result)
     local verdict
     if result.veto then
@@ -53,19 +32,6 @@ local function devCommand(argument)
     describe(result)
 end
 
-local function missesCommand()
-    if #nearMisses == 0 then
-        ns.Print("no near misses recorded")
-        return
-    end
-    ns.Print(string.format("%d near misses, newest last:", #nearMisses))
-    for _, miss in ipairs(nearMisses) do
-        ns.Print(string.format("  |cff888888%s|r %s", miss.name, miss.message))
-        ns.Print(string.format("    score %d%s  %s", miss.score,
-            miss.veto and " (vetoed)" or "", miss.explain))
-    end
-end
-
 SLASH_TRICKTURNER1, SLASH_TRICKTURNER2 = "/trick", "/tt"
 
 SlashCmdList.TRICKTURNER = function(message)
@@ -77,8 +43,6 @@ SlashCmdList.TRICKTURNER = function(message)
         if ns.UI.Toggle then ns.UI.Toggle() end
     elseif command == "dev" then
         devCommand(argument)
-    elseif command == "misses" then
-        missesCommand()
     elseif command == "start" then
         Monitor.SetRunning(true)
         ns.Print("watching " .. Monitor.ActiveChannels() .. " channels")
@@ -93,7 +57,6 @@ SlashCmdList.TRICKTURNER = function(message)
         ns.Print("/trick, /tt — open the board")
         ns.Print("/tt start | stop — watch chat, or do not")
         ns.Print("/tt dev <message> — score a message and show every signal")
-        ns.Print("/tt misses — messages that named a box but scored too low")
         ns.Print("/tt clear — empty the board")
     end
 end

@@ -6,7 +6,6 @@ manual-changelog:
 
 ignore:
   - docs
-  - tests
   - .github
   - .pkgmeta
 

@@ -2,37 +2,11 @@ local addonName, ns = ...
 local Monitor = ns.Monitor
 local Storage, Queue, Parser = ns.Storage, ns.Queue, ns.Parser
 
-local ZONE_CHANNELS = { [1] = "GENERAL", [2] = "TRADE", [26] = "LFG" }
-
 local frame
-
-local function channelShown(baseName)
-    if type(GetChatWindowChannels) ~= "function" then return true end
-    if not baseName then return true end
-    local wanted = baseName:lower()
-    local sawAny = false
-    for index = 1, (NUM_CHAT_WINDOWS or 10) do
-        local ok, list = pcall(function() return { GetChatWindowChannels(index) } end)
-        if ok and list then
-            for slot = 1, #list, 2 do
-                local name = ns.PlainString(list[slot])
-                if name then
-                    sawAny = true
-                    if name:lower() == wanted then return true end
-                end
-            end
-        end
-    end
-    -- No window reported any channel at all: the client is not answering, so the
-    -- check is unavailable. Fail open — a silent empty board is the worse failure.
-    return not sawAny
-end
-
-Monitor.ChannelShown = channelShown
 
 local function consider(message, sender, tag, channelName)
     if not Storage.account.running then return end
-    if not Storage.ChannelEnabled(tag) then return end
+    if not Storage.SourceEnabled(tag, channelName) then return end
 
     local text = ns.PlainString(message)
     local name = ns.PlainString(sender)
@@ -50,12 +24,11 @@ local function consider(message, sender, tag, channelName)
     local result = Parser.Scan(text)
     if not result then return end
 
-    if not Parser.Matches(result, Storage.Threshold()) then
-        if ns.Commands and ns.Commands.RecordNearMiss then
-            ns.Commands.RecordNearMiss(name, text, result)
-        end
-        return
+    local matched = Parser.Matches(result, Storage.Threshold())
+    if matched or result.score >= Storage.LogLevel() then
+        ns.Log.Record(name, text, channelName or tag, result, matched)
     end
+    if not matched then return end
 
     local job, fresh, chime = Queue.Add(name, text, tag, channelName, result)
     if not job then return end
@@ -83,12 +56,11 @@ end
 
 local function onChannel(...)
     local message, sender = ...
-    local zoneID, _, baseName = select(7, ...)
-    zoneID = ns.Plain(zoneID)
-    baseName = ns.PlainString(baseName)
-    local tag = (type(zoneID) == "number" and ZONE_CHANNELS[zoneID]) or "OTHER"
-    if not channelShown(baseName) then return end
-    consider(message, sender, tag, baseName)
+    local zone = ns.Plain(select(7, ...))
+    if type(zone) ~= "number" or zone <= 0 then return end
+    local baseName = ns.PlainString(select(9, ...))
+    if not baseName then return end
+    consider(message, sender, "CHANNEL", baseName)
 end
 
 local function onRoster()
@@ -108,11 +80,14 @@ function Monitor.Initialise()
     frame:RegisterEvent("CHAT_MSG_SAY")
     frame:RegisterEvent("CHAT_MSG_YELL")
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+    frame:RegisterEvent("CHANNEL_UI_UPDATE")
     frame:SetScript("OnEvent", function(_, event, ...)
         if event == "CHAT_MSG_CHANNEL" then
             onChannel(...)
         elseif event == "GROUP_ROSTER_UPDATE" then
             onRoster()
+        elseif event == "CHANNEL_UI_UPDATE" then
+            if ns.UI and ns.UI.Refresh then ns.UI.Refresh() end
         else
             local message, sender = ...
             local tag = event:match("^CHAT_MSG_(%u+)$")
@@ -122,9 +97,9 @@ function Monitor.Initialise()
 end
 
 function Monitor.ActiveChannels()
-    local total = 0
-    for _, tag in ipairs({ "TRADE", "GENERAL", "LFG", "OTHER", "SAY", "YELL", "WHISPER" }) do
-        if Storage.ChannelEnabled(tag) then total = total + 1 end
+    local total = ns.Channels.EnabledCount()
+    for _, tag in ipairs({ "SAY", "YELL", "WHISPER" }) do
+        if Storage.SourceEnabled(tag) then total = total + 1 end
     end
     return total
 end

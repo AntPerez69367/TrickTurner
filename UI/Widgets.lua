@@ -331,7 +331,7 @@ function UI.Switch(parent, label, getter, setter)
     return row
 end
 
-function UI.Slider(parent, label, min, max, step, getter, setter)
+function UI.Slider(parent, label, min, max, step, getter, setter, format)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(20)
     row.label = UI.Text(row, "GameFontNormalSmall")
@@ -361,21 +361,29 @@ function UI.Slider(parent, label, min, max, step, getter, setter)
     slider:SetThumbTexture(thumb)
 
     local percent = math.floor(step * 100 + 0.5)
-    row.Apply = function(value)
-        row.value:SetText(string.format("%d%%", math.floor(value * 100 + 0.5)))
+    local function show(value)
+        if format then
+            row.value:SetText(format(value))
+        else
+            row.value:SetText(string.format("%d%%", math.floor(value * 100 + 0.5)))
+        end
     end
     local function quantise(raw)
         local steps = math.floor(raw * 100 / percent + 0.5)
         return steps * percent / 100
     end
+    row.Apply = function()
+        local value = getter()
+        slider:SetValue(value)
+        show(value)
+    end
     slider:SetScript("OnValueChanged", function(_, raw)
-        row.Apply(quantise(raw))
+        show(quantise(raw))
     end)
     slider:SetScript("OnMouseUp", function(self)
         setter(quantise(self:GetValue()))
     end)
-    slider:SetValue(getter())
-    row.Apply(getter())
+    row.Apply()
     return row
 end
 

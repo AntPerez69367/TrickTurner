@@ -7,6 +7,8 @@ ns.Parser = {}
 ns.Skill = {}
 ns.Queue = {}
 ns.Service = {}
+ns.Channels = {}
+ns.Log = {}
 ns.Monitor = {}
 ns.Commands = {}
 ns.Minimap = {}
@@ -37,6 +39,14 @@ function ns.Announce(message)
         return
     end
     ns.Print(message)
+end
+
+function ns.NormaliseTerm(term)
+    if type(term) ~= "string" then return nil end
+    local text = term:lower():gsub("[^%a%d]", " "):gsub("%s+", " ")
+    text = text:match("^%s*(.-)%s*$")
+    if text == "" then return nil end
+    return text
 end
 
 function ns.Namespaced(container, method, fallback)
